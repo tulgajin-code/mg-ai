@@ -1,14 +1,14 @@
-import speech_recognition as sr
-import pyttsx3
+import discord
+from discord.ext import commands
 import sqlite3
 import requests
 from bs4 import BeautifulSoup
 
-# voice engine
-engine = pyttsx3.init()
-recognizer = sr.Recognizer()
+TOKEN = "YOUR_BOT_TOKEN"
 
-# database
+intents = discord.Intents.default()
+bot = commands.Bot(command_prefix="!", intents=intents)
+
 conn = sqlite3.connect("ai_brain.db")
 cursor = conn.cursor()
 
@@ -19,7 +19,6 @@ answer TEXT
 )
 """)
 
-# интернет хайх
 def search_web(query):
 
     url = "https://www.bing.com/search?q=" + query
@@ -36,7 +35,6 @@ def search_web(query):
 
     return "Мэдээлэл олдсонгүй"
 
-# AI бодох хэсэг
 def ai_brain(user):
 
     cursor.execute("SELECT answer FROM brain WHERE question=?", (user,))
@@ -45,98 +43,29 @@ def ai_brain(user):
     if result:
         return result[0]
 
-    else:
+    answer = search_web(user)
 
-        print("🌐 Интернетээс хайж байна...")
+    cursor.execute(
+        "INSERT INTO brain(question,answer) VALUES(?,?)",
+        (user, answer)
+    )
 
-        answer = search_web(user)
+    conn.commit()
 
-        cursor.execute(
-            "INSERT INTO brain(question,answer) VALUES(?,?)",
-            (user, answer)
-        )
+    return answer
 
-        conn.commit()
-
-        return answer
-
-
-print("🤖 Hybrid AI Assistant")
-print("voice эсвэл text ашиглаж болно")
-print("exit гэж хэлвэл гарна\n")
-
-while True:
-
-    mode = input("1 = text | 2 = voice : ")
-
-    # TEXT MODE
-    if mode == "1":
-
-        user = input("You: ")
-
-        if user.lower() == "exit":
-            break
-
-        answer = ai_brain(user)
-
-        print("Bot:", answer)
-
-    # VOICE MODE
-    elif mode == "2":
-
-        with sr.Microphone() as source:
-
-            print("🎤 Сонсож байна...")
-            audio = recognizer.listen(source)
-
-        try:
-
-            text = recognizer.recognize_google(audio)
-
-            print("You:", text)
-
-            if text.lower() == "exit":
-                engine.say("Баяртай")
-                engine.runAndWait()
-                break
-
-            answer = ai_brain(text)
-
-            print("Bot:", answer)
-
-            engine.say(answer)
-            engine.runAndWait()
-
-        except:
-
-            print("Bot: Би ойлгосонгүй")
-
-conn.close()
-import discord
-from discord.ext import commands
-
-TOKEN = "YOUR_BOT_TOKEN"
-
-bot = commands.Bot(command_prefix="!")
 
 @bot.event
 async def on_ready():
-    print("Voice AI Bot Online")
+    print("AI Bot Online")
+
 
 @bot.command()
-async def join(ctx):
+async def ask(ctx, *, question):
 
-    channel = ctx.author.voice.channel
-    await channel.connect()
+    answer = ai_brain(question)
 
-@bot.command()
-async def leave(ctx):
+    await ctx.send(answer)
 
-    await ctx.voice_client.disconnect()
-
-@bot.command()
-async def say(ctx, *, text):
-
-    await ctx.send("AI: " + text)
 
 bot.run(TOKEN)
