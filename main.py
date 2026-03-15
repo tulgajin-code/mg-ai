@@ -1,75 +1,47 @@
 import discord
 from discord.ext import commands
-import sqlite3
-import requests
-from bs4 import BeautifulSoup
 import os
+from openai import OpenAI
 
+# tokens
 TOKEN = os.getenv("TOKEN")
+OPENAI_KEY = os.getenv("OPENAI_KEY")
 
+# OpenAI client
+client = OpenAI(api_key=OPENAI_KEY)
+
+# discord intents
 intents = discord.Intents.default()
 intents.message_content = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-conn = sqlite3.connect("ai_brain.db")
-cursor = conn.cursor()
-
-cursor.execute("""
-CREATE TABLE IF NOT EXISTS brain(
-question TEXT PRIMARY KEY,
-answer TEXT
-)
-""")
-
-def search_web(query):
-
-    url = "https://www.bing.com/search?q=" + query
-    headers = {"User-Agent": "Mozilla/5.0"}
-
-    r = requests.get(url, headers=headers)
-
-    soup = BeautifulSoup(r.text, "html.parser")
-
-    results = soup.find_all("p")
-
-    if results:
-        return results[0].text
-
-    return "Мэдээлэл олдсонгүй"
-
-
-def ai_brain(user):
-
-    cursor.execute("SELECT answer FROM brain WHERE question=?", (user,))
-    result = cursor.fetchone()
-
-    if result:
-        return result[0]
-
-    answer = search_web(user)
-
-    cursor.execute(
-        "INSERT INTO brain(question,answer) VALUES(?,?)",
-        (user, answer)
-    )
-
-    conn.commit()
-
-    return answer
-
-
+# bot online
 @bot.event
 async def on_ready():
-    print("AI Bot Online")
+    print("🇲🇳 Монгол AI Bot Online")
 
-
+# AI command
 @bot.command()
-async def ask(ctx, *, question):
+async def ai(ctx, *, question):
 
-    answer = ai_brain(question)
+    try:
 
-    await ctx.send(answer)
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": "Чи Монгол хэлээр ярьдаг ухаантай AI туслах."},
+                {"role": "user", "content": question}
+            ]
+        )
+
+        answer = response.choices[0].message.content
+
+        await ctx.send(answer)
+
+    except Exception as e:
+        await ctx.send("AI алдаа гарлаа.")
+        print(e)
 
 
 bot.run(TOKEN)
