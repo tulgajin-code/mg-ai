@@ -3,10 +3,13 @@ from discord.ext import commands
 import sqlite3
 import requests
 from bs4 import BeautifulSoup
+import os
 
-TOKEN = "YOUR_BOT_TOKEN"
+TOKEN = os.getenv("TOKEN")
 
 intents = discord.Intents.default()
+intents.message_content = True
+
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 conn = sqlite3.connect("ai_brain.db")
@@ -34,6 +37,7 @@ def search_web(query):
         return results[0].text
 
     return "Мэдээлэл олдсонгүй"
+
 
 def ai_brain(user):
 
